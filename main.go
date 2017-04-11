@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"html/template"
-	"go-book/blog/models"
+	"./models"
 )
 
 var posts map[string]*models.Post
