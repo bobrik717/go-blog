@@ -1,62 +1,60 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"html/template"
 	"./models"
+	"github.com/codegangsta/martini"
+	"github.com/codegangsta/martini-contrib/render"
 )
 
 var posts map[string]*models.Post
 
 func main() {
-	fmt.Println("Listnening on port :3000")
-
 	posts = make(map[string]*models.Post,0)
 
-	http.Handle("/assets/", http.StripPrefix("/assets/",http.FileServer(http.Dir("./assets/"))))
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/write", writeHandler)
-	http.HandleFunc("/edit", editHandler)
-	http.HandleFunc("/savePost", savePostHandler)
-	http.HandleFunc("/deletePost", deletePostHandler)
+	m := models.MyMartiniClassic{*martini.Classic()}
 
-	http.ListenAndServe(":3000",nil)
+	m.Use(render.Renderer(render.Options{
+		Directory: "views", // Specify what path to load the templates from.
+		Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
+		Extensions: []string{".tmpl", ".html"}, // Specify extensions to load for templates.
+		//Funcs: []template.FuncMap{AppHelpers}, // Specify helper function maps for templates to access.
+		Charset: "UTF-8", // Sets encoding for json and html content-types. Default is "UTF-8".
+		IndentJSON: true, // Output human readable JSON
+	}))
+
+	options := martini.StaticOptions{Prefix:"assets"}
+	m.Use(martini.Static("assets",options))
+
+	m.Get("/", homeHandler)
+	m.Get("/write", writeHandler)
+	m.Get("/edit/:id", editHandler)
+	m.Post("/savePost", savePostHandler)
+	m.Get("/deletePost/:id", deletePostHandler)
+
+	m.RunCustom("3001")
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	temp, err := template.ParseFiles("views/index.html","views/header.html","views/footer.html")
-	if err != nil {
-		fmt.Fprintf(w,err.Error())
-	}
-	temp.ExecuteTemplate(w,"index",posts)
+func homeHandler(rnd render.Render) {
+	rnd.HTML(200, "index", posts)
 }
 
-func writeHandler(w http.ResponseWriter, r *http.Request) {
-	temp, err := template.ParseFiles("views/write.html","views/header.html","views/footer.html")
-	if err != nil {
-		fmt.Fprintf(w,err.Error())
-	}
-	temp.ExecuteTemplate(w,"write",nil)
+func writeHandler(rnd render.Render) {
+	rnd.HTML (200,"write",nil)
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request) {
-	temp, err := template.ParseFiles("views/write.html","views/header.html","views/footer.html")
-	if err != nil {
-		fmt.Fprintf(w,err.Error())
-	}
-
-	id := r.FormValue("id")
+func editHandler(rnd render.Render, params martini.Params) {
+	id := params["id"]
 
 	pots, isFound := posts[id]
 	if !isFound {
-		http.NotFound(w,r)
+		rnd.Error(404)
 	}
 
-	temp.ExecuteTemplate(w,"write", pots)
+	rnd.HTML(200,"write", pots)
 }
 
-func savePostHandler(w http.ResponseWriter, r *http.Request) {
+func savePostHandler(rnd render.Render, r *http.Request) {
 	id := r.FormValue("id")
 	title := r.FormValue("title")
 	content := r.FormValue("content")
@@ -68,21 +66,21 @@ func savePostHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		_, isFound := posts[id]
 		if !isFound {
-			http.NotFound(w,r)
+			rnd.Error(404)
 		}
 
 		posts[id].Title = title
 		posts[id].Content = content
 	}
-	http.Redirect(w,r,"/",302)
+	rnd.Redirect("/",302)
 }
 
-func deletePostHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.FormValue("id")
+func deletePostHandler(rnd render.Render, params martini.Params) {
+	id := params["id"]
 	_, isFound := posts[id]
 	if !isFound {
-		http.NotFound(w,r)
+		rnd.Error(404)
 	}
 	delete(posts, id)
-	http.Redirect(w,r,"/",302)
+	rnd.Redirect("/",302)
 }
