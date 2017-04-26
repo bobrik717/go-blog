@@ -5,14 +5,21 @@ import (
 	"./models"
 	"github.com/codegangsta/martini"
 	"github.com/codegangsta/martini-contrib/render"
-	"github.com/russross/blackfriday"
 	"html/template"
+	"gopkg.in/mgo.v2"
 )
 
-var posts map[string]*models.Post
+var postsCollection *mgo.Collection
 
 func main() {
-	posts = make(map[string]*models.Post,0)
+	session, err := mgo.Dial("localhost")
+	if err != nil {
+		panic(err)
+	}
+
+	defer session.Close()
+
+	postsCollection = session.DB("blog").C("posts")
 
 	m := models.MyMartiniClassic{*martini.Classic()}
 
@@ -41,7 +48,7 @@ func main() {
 }
 
 func homeHandler(rnd render.Render) {
-	rnd.HTML(200, "index", posts)
+	rnd.HTML(200, "index", postsCollection)
 }
 
 func writeHandler(rnd render.Render) {
@@ -63,7 +70,7 @@ func savePostHandler(rnd render.Render, r *http.Request) {
 	id := r.FormValue("id")
 	title := r.FormValue("title")
 	contentMarkDown := r.FormValue("content")
-	contentHtml  := string(blackfriday.MarkdownBasic([]byte(contentMarkDown)))
+	contentHtml  := models.ConvertMarkDownToHtml(contentMarkDown)
 
 	if id == "" {
 		id = models.GenerateId()
@@ -94,7 +101,5 @@ func deletePostHandler(rnd render.Render, params martini.Params) {
 
 func getHtmlHandler(rnd render.Render, r *http.Request) {
 	md := r.FormValue("md")
-	htmlBytes := blackfriday.MarkdownBasic([]byte(md))
-
-	rnd.JSON(200, map[string]interface{} {"html": string(htmlBytes)})
+	rnd.JSON(200, map[string]interface{} {"html": models.ConvertMarkDownToHtml(md)})
 }

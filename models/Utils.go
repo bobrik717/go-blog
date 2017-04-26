@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"html/template"
+	"github.com/russross/blackfriday"
 )
 
 func GenerateId() string {
@@ -14,4 +15,8 @@ func GenerateId() string {
 
 func Unescape(x string) interface {} {
 	return template.HTML(x)
+}
+
+func ConvertMarkDownToHtml(markDown string) string {
+	return string(blackfriday.MarkdownBasic([]byte(markDown)))
 }
