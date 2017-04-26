@@ -7,6 +7,7 @@ import (
 	"github.com/codegangsta/martini-contrib/render"
 	"html/template"
 	"gopkg.in/mgo.v2"
+	"go-book/blog/db/documents"
 )
 
 var postsCollection *mgo.Collection
@@ -48,7 +49,15 @@ func main() {
 }
 
 func homeHandler(rnd render.Render) {
-	rnd.HTML(200, "index", postsCollection)
+	postDocuments := []documents.PostDocument{}
+	postsCollection.Find(nil).All(&postDocuments)
+
+	posts := []*models.Post{}
+	for _,doc := range postDocuments {
+		post := models.NewPost(doc.Id,doc.Title,doc.ContentHtml,doc.ContentMarkDown)
+		posts = append(posts, post)
+	}
+	rnd.HTML(200, "index", posts)
 }
 
 func writeHandler(rnd render.Render) {
@@ -57,13 +66,13 @@ func writeHandler(rnd render.Render) {
 
 func editHandler(rnd render.Render, params martini.Params) {
 	id := params["id"]
-
-	pots, isFound := posts[id]
-	if !isFound {
+	doc := documents.PostDocument{}
+	err := postsCollection.FindId(id).One(&doc)
+	if err != nil {
 		rnd.Error(404)
 	}
-
-	rnd.HTML(200,"write", pots)
+	post := models.NewPost(doc.Id,doc.Title,doc.ContentHtml,doc.ContentMarkDown)
+	rnd.HTML(200,"write", post)
 }
 
 func savePostHandler(rnd render.Render, r *http.Request) {
@@ -72,30 +81,21 @@ func savePostHandler(rnd render.Render, r *http.Request) {
 	contentMarkDown := r.FormValue("content")
 	contentHtml  := models.ConvertMarkDownToHtml(contentMarkDown)
 
+	postDocument := documents.PostDocument{id,title,contentHtml,contentMarkDown}
+
 	if id == "" {
 		id = models.GenerateId()
-		post := models.NewPost(id, title, contentHtml, contentMarkDown)
-		posts[post.Id] = post
+		postDocument.Id = id
+		postsCollection.Insert(postDocument)
 	} else {
-		_, isFound := posts[id]
-		if !isFound {
-			rnd.Error(404)
-		}
-
-		posts[id].Title = title
-		posts[id].ContentHtml = contentHtml
-		posts[id].ContentMarkDown = contentMarkDown
+		postsCollection.UpdateId(id, postDocument)
 	}
 	rnd.Redirect("/",302)
 }
 
 func deletePostHandler(rnd render.Render, params martini.Params) {
 	id := params["id"]
-	_, isFound := posts[id]
-	if !isFound {
-		rnd.Error(404)
-	}
-	delete(posts, id)
+	postsCollection.RemoveId(id)
 	rnd.Redirect("/",302)
 }
 
