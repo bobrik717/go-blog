@@ -7,8 +7,8 @@ import (
 	"github.com/codegangsta/martini-contrib/render"
 	"html/template"
 	"gopkg.in/mgo.v2"
-	"go-book/blog/db/documents"
-	"go-book/blog/session"
+	"./db/documents"
+	"./session"
 	"time"
 	"fmt"
 )
