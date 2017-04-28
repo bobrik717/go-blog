@@ -8,19 +8,28 @@ import (
 	"html/template"
 	"gopkg.in/mgo.v2"
 	"go-book/blog/db/documents"
+	"go-book/blog/session"
+	"time"
+	"fmt"
 )
 
 var postsCollection *mgo.Collection
+var sessionMain *session.Session
+
+const (
+	COOKIE_NAME = "sessionId"
+)
 
 func main() {
-	session, err := mgo.Dial("localhost")
+	dbConnect, err := mgo.Dial("localhost")
 	if err != nil {
 		panic(err)
 	}
+	defer dbConnect.Close()
 
-	defer session.Close()
+	sessionMain = session.NewSession()
 
-	postsCollection = session.DB("blog").C("posts")
+	postsCollection = dbConnect.DB("blog").C("posts")
 
 	m := models.MyMartiniClassic{*martini.Classic()}
 
@@ -39,6 +48,8 @@ func main() {
 	m.Use(martini.Static("assets",options))
 
 	m.Get("/", homeHandler)
+	m.Get("/login", loginIndexHandler)
+	m.Post("/login", loginHandler)
 	m.Get("/write", writeHandler)
 	m.Get("/edit/:id", editHandler)
 	m.Post("/savePost", savePostHandler)
@@ -48,9 +59,35 @@ func main() {
 	m.RunCustom("3001")
 }
 
-func homeHandler(rnd render.Render) {
+func loginIndexHandler(rnd render.Render) {
+	rnd.HTML (200,"login",nil)
+}
+
+func loginHandler(rnd render.Render, r *http.Request, w http.ResponseWriter) {
+	login := r.FormValue("login")
+	//password := r.FormValue("password")
+
+	sessionId := sessionMain.Init(login)
+
+	cookie := &http.Cookie{
+		Name: COOKIE_NAME,
+		Value: sessionId,
+		Expires: time.Now().Add( 5 * time.Minute),
+	}
+
+	http.SetCookie(w, cookie)
+
+	rnd.Redirect("/")
+}
+
+func homeHandler(rnd render.Render, r *http.Request) {
 	postDocuments := []documents.PostDocument{}
 	postsCollection.Find(nil).All(&postDocuments)
+
+	id, err := r.Cookie(COOKIE_NAME)
+	if err == nil {
+		fmt.Println(sessionMain.Get(id.Value))
+	}
 
 	posts := []*models.Post{}
 	for _,doc := range postDocuments {
