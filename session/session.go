@@ -2,6 +2,12 @@ package session
 
 import "go-book/blog/models"
 
+var SessionMain *Session
+
+const (
+	COOKIE_NAME = "sessionId"
+)
+
 type SessionData struct {
 	Username string
 }
