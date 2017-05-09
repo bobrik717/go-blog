@@ -5,6 +5,8 @@ import (
 	"github.com/codegangsta/martini"
 	"github.com/codegangsta/martini-contrib/render"
 	"html/template"
+	"net/http"
+	"go-book/blog/session"
 )
 
 func App() {
@@ -23,6 +25,13 @@ func App() {
 
 	options := martini.StaticOptions{Prefix:"assets"}
 	app.Use(martini.Static("assets",options))
+
+	app.Use(func(r *http.Request, rnd render.Render) {
+		_, err := r.Cookie(session.COOKIE_NAME)
+		if err != nil && r.RequestURI != "/login" {
+			rnd.Redirect("/login",302)
+		}
+	})
 
 	app.Get("/", IndexHandler)
 	app.Get("/login", LoginIndexHandler)

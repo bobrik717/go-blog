@@ -1,6 +1,6 @@
 package session
 
-import "../models"
+import "go-book/blog/models"
 
 var SessionMain *Session
 
